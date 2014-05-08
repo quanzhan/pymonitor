@@ -1,0 +1,199 @@
+<script type='text/javascript' src='/js/jquery-1.7.1.min.js'></script>
+<script type='text/javascript'>
+$(document).ready(function(){
+    clusterhuitu();
+    clusterhuitu2(); //内存
+//    clusterhuitu3();
+    clusterhuitu4();
+
+function clusterhuitu(){
+	$page=$('#fuzaitime').val();
+	$page=parseInt($page);
+	
+	$('#clusterhuitu').html('<br/><br/><p style="text-align:center;"><img src="/js/c.gif"/></p>');
+	if($page ==1){
+	    $.ajax({
+	    	url:'{% url monitor-clusterhuitu %}',
+	    	success:function(data,textStatus){
+	    		$('#clusterhuitu').html(data);
+	    	},
+	    	error:function(){
+	    	$('#clusterhuitu').html('<font color="red">对不起，信息加载失败。</font>');
+	    	}
+	    });
+	}else if($page==5){
+	    $.ajax({
+	    	url:'{% url monitor-clusterhuitu5 %}',
+	    	success:function(data,textStatus){
+	    		$('#clusterhuitu').html(data);
+	    	},
+	    	error:function(){
+	    	$('#clusterhuitu').html('<font color="red">对不起，信息加载失败。</font>');
+	    	}
+	    });
+	}else if($page==15){
+	    $.ajax({
+	    	url:'{% url monitor-clusterhuitu15 %}',
+	    	success:function(data,textStatus){
+	    	    $('#clusterhuitu').html(data);
+	    	},
+	    	error:function(){
+	    	    $('#clusterhuitu').html('<font color="red">对不起，信息加载失败。</font>');
+	    	}
+	    });
+
+	}
+}
+
+function clusterhuitu2(){
+	$('#clusterhuitu2').html('<br/><br/><p style="text-align:center;"><img src="/js/c.gif"/></p>');
+	$.ajax({
+		url:'{% url memory%}',
+		success:function(data,textStatus){
+		    $('#clusterhuitu2').html(data);
+		},
+		error:function(){
+		    $('#clusterhuitu2').html('<font color="red">对不起，信息加载失败。</font>');
+		}
+	});
+}
+
+function clusterhuitu3(){
+	$('#clusterhuitu3').html('<br/><br/><p style="text-align:center;"><img src="/js/c.gif"/></p>');
+	$.ajax({
+		url:'{% url io%}',
+		success:function(data,textStatus){
+			$('#clusterhuitu3').html(data);
+		},
+		error:function(){
+		    $('#clusterhuitu3').html('<font color="red">对不起，信息加载失败。</font>');
+		}
+	});
+}
+
+function clusterhuitu4(){
+	$('#clusterhuitu4').html('<br/><br/><p style="text-align:center;"><img src="/js/c.gif"/></p>');
+	$.ajax({
+		url:'{% url network %}',
+		success:function(data,textStatus){
+		    $('#clusterhuitu4').html(data);
+		},
+		error:function(){
+		    $('#clusterhuitu4').html('<font color="red">对不起，信息加载失败。</font>');
+		}
+	});
+}
+
+});
+</script>
+<script type='text/javascript'>
+function nodedatacluster(){
+	$page=$('#fuzaitime').val();
+	$page=parseInt($page);
+	$('#clusterhuitu').html('<br/><br/><p style="text-align:center;"><img src="/js/c.gif"/></p>');
+	if($page ==1){
+		var listname='listtme';
+		document.location.href='/nodedatacluster/?listname='+listname;
+	    }
+	else if($page==5){
+		var listname='listtme5';
+		document.location.href='/nodedatacluster/?listname='+listname;
+	}else if($page==15){
+		var listname='listtme15';
+		document.location.href='/nodedatacluster/?listname='+listname;
+
+	}
+}
+function nodedatamemory(){
+		var listname='listmemory';
+		document.location.href='/nodedatacluster/?listname='+listname;
+}
+function nodedatasnetwork(){
+		var listname='listnetworktx';
+		var listname1='listnetworkrx';
+		document.location.href='/nodedatascluster/?listname='+listname+'&listname1='+listname1;
+}
+</script>
+<style>
+*{ margin:0; padding:0; font-size:12px;}
+li{ list-style-type:none; float:left}
+.clear{clear:both;height:0;overflow:hidden;}
+.xlmenu1{ width:276px; height:29px; padding-left:14px; float:left}
+.jqMonitort{ width:797px; height:34px; background:url(/images/yt2.jpg) no-repeat}
+.jqtupiao{ width:797px; height:363px; padding-top:10px;}
+</style>
+<div style="width:797px;float:left;">
+<div >
+	<div class="jqMonitort">
+		<div class="xlmenu1">
+		<span style="width:56px;height:29px;line-height:29px;float:left;color:#1d11d;font-size:14px;">负载：</span> 
+<select onchange="clusterhuitu()" id="fuzaitime" style="width:216px;height:24px;display:block;float:left;border:1px solid #e2e4e6;margin-top:4px;">
+<option>1分钟</option>
+<option>5分钟</option>
+<option>15分钟</option>
+</select>
+</div>
+	<div style="width:79px;height:30px;float:left;padding-left:410px;padding-top:2px;">
+		<input type="button" style="width:79px;height:30px;background:url(/images/button3.gif) no-repeat;border:0;"/>
+	</div>
+</div>
+<div class="jqtupiao">
+    <div style="width:727px; height:342px; background:url(images/ghg.jpg) no-repeat; padding-left:70px; padding-top:21px;">
+	<div id='clusterhuitu' onclick="nodedatacluster()" style="width:650px;height:296px;">
+		<p style="text-align:center;"><img src="/js/c.gif"/></p>
+	</div>
+	</div>
+	</div>
+</div>
+<div style="width:797px; height:405px;padding-top:16px;">
+	<div class="jqMonitort">
+		<div class="xlmenu1">
+		<span style="width:56px;height:29px;line-height:29px;float:left;color:#1d11d;font-size:14px;">内存：</span> 
+		</div>
+		<div style="width:79px;height:30px;float:left;padding-left:410px;padding-top:2px;">
+			<input type="button" style="width:79px;height:30px;background:url(/images/button3.gif) no-repeat;border:0;"/>
+		</div>
+	</div>
+	<div class="jqtupiao">
+    <div style="width:727px; height:342px; background:url(images/ghg.jpg) no-repeat; padding-left:70px; padding-top:21px;">
+	<div id='clusterhuitu2' onclick="nodedatamemory()"style="width:619px;height:296px;">
+		<p style="text-align:center;"><img src="/js/c.gif"/></p>
+	</div>
+	</div>
+	</div>
+</div>
+<div style="width:797px; height:405px;padding-top:16px;">
+	<div class="jqMonitort">
+		<div class="xlmenu1">
+		<span style="width:56px;height:29px;line-height:29px;float:left;color:#1d11d;font-size:14px;">I/O：</span> 
+		</div>
+		<div style="width:79px;height:30px;float:left;padding-left:410px;padding-top:2px;">
+			<input type="button" style="width:79px;height:30px;background:url(/images/button3.gif) no-repeat;border:0;"/>
+		</div>
+	</div>
+	<div class="jqtupiao">
+    <div style="width:727px; height:342px; background:url(images/ghg.jpg) no-repeat; padding-left:70px; padding-top:21px;">
+	<div id='clusterhuitu3' style="width:619px;height:296px;">
+		<p style="text-align:center;"><img src="/js/c.gif"/></p>
+	</div>
+	</div>
+	</div>
+</div>
+<div style="width:797px; height:405px;padding-top:16px;">
+	<div class="jqMonitort">
+		<div class="xlmenu1">
+		<span style="width:56px;height:29px;line-height:29px;float:left;color:#1d11d;font-size:14px;">网络：</span> 
+		</div>
+		<div style="width:79px;height:30px;float:left;padding-left:410px;padding-top:2px;">
+			<input type="button" style="width:79px;height:30px;background:url(/images/button3.gif) no-repeat;border:0;"/>
+		</div>
+	</div>
+	<div class="jqtupiao">
+    <div style="width:727px; height:342px; background:url(images/ghg.jpg) no-repeat; padding-left:70px; padding-top:21px;">
+	<div id='clusterhuitu4' onclick="nodedatasnetwork()"style="width:619px;height:296px;">
+		<p style="text-align:center;"><img src="/js/c.gif"/></p>
+	</div>
+	</div>
+	</div>
+</div>
+

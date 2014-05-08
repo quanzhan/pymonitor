@@ -1,0 +1,55 @@
+
+{% extends "base.html" %}
+
+{% block title %} 监控 - 集群监控 {% endblock %}
+{% block rtop %} 集群监控 {% endblock %}
+{% block contents %}
+<!DOCTYPE HTML PUBLIVC "-//W3C//DTD HTML 4.01//EN">
+<!--[if lte IE 8]><script language='javascript' type='text/javascript' src='/js/excanvas.min.js'></script><![endif]-->
+<script language='javascrippt' type='text/javascript' src='/js/jquery-1.7.1.min.js'></script>
+<script language='javascrippt' type='text/javascript' src='/js/jquery.flot.js'></script>
+{% for i in nodelist %}
+<div id='{{i}}' style="display:none"></div>
+<div id='{{i}}data'style="margin-left:4px;margin-top:4px;float:left;width:180px;height:100px;">
+</div>
+<script type='text/javascript'>
+$(function(){
+	function getRandomData(){
+				var res=[];
+            	$.get("{%url nodedata%}?listname={{listname}}&dbname={{i}}", function(result){$("#{{i}}").html(result);});
+                var y = $("#{{i}}").html();
+				if (y!=''&&y!=null){
+				y=eval(y);
+				for (var i=0;i<y.length;++i)
+					res.push([i+300-y.length,y[i]])
+				}
+                return res;
+	}
+	var options={
+	//	lines:{lineWidth:0,fill:true,fillColor:"#63B8FF"},
+		serier:{shadowSize:0},
+		yaxis:{min:0,max:100,ticks:[[0,'0%'],[20,'20%'],[40,'40%'],[60,'60%'],[80,'80%'],[100,'100%']]},
+		xaxis:{show:false}
+		
+	};
+	var plot = $.plot($("#{{i}}data"),[[[0,20],[300,20]],[[0,50],[300,50]],[[0,80],[300,80]],{label:"{{i}}",data:getRandomData()}],options);
+	function update(){
+		plot.setData([[[0,20],[300,20]],[[0,50],[300,50]],[[0,80],[300,80]],{label:"{{i}}",data:getRandomData()}]);
+		plot.draw();
+		setTimeout(update,3000);
+	}
+
+	update();
+
+});
+</script>
+<style>
+*{ margin:0; padding:0; font-size:12px;}
+li{ list-style-type:none; float:left}
+.clear{clear:both;height:0;overflow:hidden;}
+.xlmenu1{ width:276px; height:29px; padding-left:14px; float:left}
+.jqMonitort{ width:797px; height:34px; background:url(/images/yt2.jpg) no-repeat}
+.jqtupiao{ width:797px; height:363px; padding-top:10px;}
+</style>
+{%endfor%}
+{%endblock%}

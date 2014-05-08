@@ -1,0 +1,143 @@
+#!/usr/bin/python
+"""
+this file is used as the server of monitor
+"""
+from twisted.internet.protocol import Factory
+from twisted.protocols.basic import LineReceiver
+from twisted.internet import protocol, reactor
+from time import ctime
+import time
+import threading
+import redis
+import ConfigParser
+import json
+import logging
+import os
+import pyssh
+PORT = 8123
+hostip = '127.0.0.1'
+hostport = 6379
+try:
+    config = ConfigParser.ConfigParser()
+    with open('/etc/monitor/pym_server.cfg', 'rw') as cfgfile:
+        config.readfp(cfgfile)
+        try:
+            PORT = int(config.get('server', 'SERVERPORT'))
+        except:
+            pass
+        try:
+            hostip = config.get('server', 'REDISHOST')
+        except:
+            pass
+        try:
+            hostport = int(config.get('server', 'REDISPORT'))
+        except:
+            pass
+        cfgfile.close()
+except:
+    pass
+lock = threading.Lock()
+def datareload(self):
+    """
+    delete all data
+    """
+    if lock.acquire():
+        time.sleep(1)
+        try:
+            t = redis.Redis(host=hostip, port=hostport, 
+                            db=int(self.name.split('.')[-1]))
+            t.flushdb()
+        except Exception,ex:
+            logger = logging.getLogger('pymserver')
+            logger.setLevel(logging.DEBUG)
+            fh = logging.FileHandler('/var/log/monitor/pymserver.log')
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            fh.setFormatter(formatter)
+            logger.addHandler(fh)
+            logger.error(ex)
+            try:
+                os.system("rm -rf /var/run/pym_server/pym_server.pid")
+                os.system("rm -rf /var/lock/subsys/pym_server")
+                (status, msg, result) = pyssh.getcmd('netstat -ltunp|grep '+str(PORT))
+                result=result.split()[-1].split('/')[0]
+                os.system("kill -9 "+result)
+            except:
+                pass
+        lock.release()
+try:
+    r = redis.Redis(host=hostip, port=hostport, db=1)
+    r.flushdb()
+    class TSServProtocol(protocol.Protocol):
+        """
+        the server base class
+        """
+        def __init__(self,dic):
+            self.name = None
+            self.dic = dic
+        def connectionMade(self):
+            clnt = self.clnt = self.transport.getPeer().host
+            print '...connected from:', ctime(), clnt
+            self.dic[clnt] = 1
+            print self.dic
+        def connectionLost(self, reason):
+            clnt = self.clnt = self.transport.getPeer().host
+            print '...lost connected from:', clnt
+            del self.dic[clnt]
+            print self.dic
+            if self.dic=={}:
+                tc = redis.Redis(host=hostip, port=hostport, db=2)
+                tc.flushdb()
+            
+            if r.exists(self.name):
+                r.delete(self.name)
+                tt = threading.Thread(target=datareload(self))
+                tt.start()
+        def dataReceived(self, data):
+            data = json.loads(data)
+            r[data[0]] = json.dumps(data[1])
+            self.name = data[0]
+            self.transport.write('[%s] %s' %(ctime(), data))
+    class ChatFactory(Factory):
+        """
+        a class used for server
+        """
+        def __init__(self):
+            self.dic={}
+        def buildProtocol(self, addr):
+            return TSServProtocol(self.dic)
+    print 'waiting for connection...'
+    import sys
+    reactor.listenTCP(PORT, ChatFactory())
+    try:   
+        pid = os.fork()   
+        if pid > 0:  
+            sys.exit(0)   
+    except OSError, e:   
+        print >>sys.stderr, "fork #1 failed: %d (%s)" % (e.errno, e.strerror)   
+        sys.exit(1)  
+    os.chdir("/")   
+    os.setsid()   
+    os.umask(0)   
+    try:   
+        pid = os.fork()   
+        if pid > 0:  
+            print "Daemon PID %d" % pid   
+            sys.exit(0)   
+    except OSError, e:   
+        print >>sys.stderr, "fork #2 failed: %d (%s)" % (e.errno, e.strerror)   
+        sys.exit(1)   
+    reactor.run()
+except Exception,ex:
+    logger = logging.getLogger('pymserver')
+    logger.setLevel(logging.DEBUG)
+    fh = logging.FileHandler('/var/log/monitor/pymserver.log')
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+    logger.error(ex)
+    try:
+        os.system("rm -rf /var/run/pym_server/pym_server.pid")
+        os.system("rm -rf /var/lock/subsys/pym_server")
+    except:
+        pass
+    exit(1)

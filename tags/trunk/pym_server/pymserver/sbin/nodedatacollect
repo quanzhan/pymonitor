@@ -1,0 +1,108 @@
+#!/usr/bin/python
+import redis
+import time
+import json
+import threading
+import ConfigParser
+import logging
+import os
+hostip='127.0.0.1'
+hostport=6379
+try:
+	config=ConfigParser.ConfigParser()
+	with open('/etc/monitor/pym_server.cfg','rw') as cfgfile:
+		config.readfp(cfgfile)
+		try:
+			hostip=config.get('server','REDISHOST')
+		except:
+			pass
+		try:
+			hostport=int(config.get('server','REDISPORT'))
+		except:
+			pass
+except:
+	pass
+try:
+    import sys
+    r=redis.Redis(host=hostip,port=hostport,db=1)
+    t=redis.Redis(host=hostip,port=hostport,db=2)
+    t.flushdb()
+    dic={}
+    listtime=[]
+    em_db=1
+    lock=threading.Lock()
+    htime=int(time.time())
+    def datas():
+        if lock.acquire():
+            for j in r.keys('*'):
+                notei=json.loads(r[j])
+                if not dic.has_key(notei[0]):
+                    listtime.append(notei[0])
+                    dic[notei[0]]={}
+                dic[notei[0]][j]=notei[1]
+            lock.release()
+    def datasave():
+        if lock.acquire():
+            for k,v in dic.items():
+                if (not t.exists(k)) or (k in listtime[-5:]):
+                    a=json.dumps(dic[k])
+                    t[k]=a
+            t['listtime']=json.dumps(listtime[1:])
+            t.delete(listtime[0])
+            del dic[listtime[0]]
+            del listtime[0]
+            lock.release()
+    def beginsave():
+        if lock.acquire():
+            for k in listtime:
+                if (not t.exists(k)) or (k in listtime[-5:]):
+                    a=json.dumps(dic[k])
+                    t[k]=a
+                    t['listtime']=json.dumps(listtime)
+            lock.release()
+    try:   
+        pid = os.fork()   
+        if pid > 0:  
+            sys.exit(0)   
+    except OSError, e:   
+        print >>sys.stderr, "fork #1 failed: %d (%s)" % (e.errno, e.strerror)   
+        sys.exit(1)  
+    os.chdir("/")   
+    os.setsid()   
+    os.umask(0)   
+    try:   
+        pid = os.fork()   
+        if pid > 0:  
+            print "Daemon PID %d" % pid   
+            sys.exit(0)   
+    except OSError, e:   
+        print >>sys.stderr, "fork #2 failed: %d (%s)" % (e.errno, e.strerror)   
+        sys.exit(1)   
+    while True:
+        while len(dic)<301:
+            t1=threading.Thread(target=datas)
+            t1.start()
+            if em_db==1 and int(time.time())%10==0 and len(listtime)>10:
+                t3=threading.Thread(target=beginsave)
+                t3.start()
+            time.sleep(0.3)
+        t2=threading.Thread(target=datasave)
+        t2.start()
+        em_db=0
+        time.sleep(0.1)
+    t.flushdb()
+except Exception,ex:
+    logger = logging.getLogger('nodedatacollect')
+    logger.setLevel(logging.DEBUG)
+    fh = logging.FileHandler('/var/log/monitor/nodedatacollect.log')
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+    logger.error(ex)
+    try:
+        import os
+        os.system("rm -rf /var/run/nodedatacollect/nodedatacollect.pid")
+        os.system("rm -rf /var/lock/subsys/nodedatacollect")
+    except:
+        pass
+    exit(1)

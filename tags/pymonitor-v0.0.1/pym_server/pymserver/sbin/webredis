@@ -1,0 +1,133 @@
+#!/usr/bin/python
+import redis
+import json
+import threading
+import time
+import ConfigParser
+import logging
+hostip='127.0.0.1'
+hostport=6379
+try:
+    config=ConfigParser.ConfigParser()
+    with open('/etc/monitor/pym_server.cfg','rw') as cfgfile:
+        config.readfp(cfgfile)
+        try:
+            hostip=config.get('server','REDISHOST')
+        except:
+            pass
+        try:
+            hostport=int(config.get('server','REDISPORT'))
+        except:
+            pass
+except:
+    pass
+try:
+    t=redis.Redis(host=hostip,port=hostport,db=2)
+    r=redis.Redis(host=hostip,port=hostport,db=3)
+    r.flushdb()
+    htime=int(time.time())
+    import sys 
+    import os
+    try:   
+        pid = os.fork()   
+        if pid > 0:  
+            sys.exit(0)   
+    except OSError, e:   
+        print >>sys.stderr, "fork #1 failed: %d (%s)" % (e.errno, e.strerror)   
+        sys.exit(1)  
+    os.chdir("/")   
+    os.setsid()   
+    os.umask(0)   
+    try:   
+        pid = os.fork()   
+        if pid > 0:  
+            print "Daemon PID %d" % pid   
+            sys.exit(0)   
+    except OSError, e:   
+        print >>sys.stderr, "fork #2 failed: %d (%s)" % (e.errno, e.strerror)   
+        sys.exit(1)   
+    while True:
+        a=int(time.time())
+        if a==htime:
+            time.sleep(0.4)
+            continue
+        else:
+            try:
+                if r.llen('listtme')!=300:
+                    for jj in range(len(json.loads(t['listtime']))):
+                        i=json.loads(t['listtime'])[jj]
+                        datas=0
+                        datas5=0
+                        datas15=0
+                        datamemory=0
+                        datanetworktx=0
+                        datanetworkrx=0
+                        dataslen=len(json.loads(t[i]))
+                        for k,v in json.loads(t[i]).items():
+                            datas+=float(json.loads(t[i])[k]['load']['loadaverage'][0])
+                            datas5+=float(json.loads(t[i])[k]['load']['loadaverage'][1])
+                            datas15+=float(json.loads(t[i])[k]['load']['loadaverage'][2])
+                            datamemory+=float(json.loads(t[i])[k]['memory']['use%'])
+                            try:
+                                datanetworktx+=round((float(json.loads(t[i])[k]['network']['tx'])-float(json.loads(t[json.loads(t['listtime'])[jj-1]])[k]['network']['tx']))/1024/1024,3)
+                                datanetworkrx+=round((float(json.loads(t[i])[k]['network']['rx'])-float(json.loads(t[json.loads(t['listtime'])[jj-1]])[k]['network']['rx']))/1024/1024,3)
+                            except:
+                                pass
+                        r.rpush('listtme',float(datas/dataslen))
+                        r.rpush('listtme5',float(datas5/dataslen))
+                        r.rpush('listtme15',float(datas15/dataslen))
+                        r.rpush('listmemory',float(datamemory/dataslen))
+                        r.rpush('listnetworktx',float(datanetworktx/dataslen))
+                        r.rpush('listnetworkrx',float(datanetworkrx/dataslen))
+                else:
+                    r.lpop('listtme')
+                    r.lpop('listtme5')
+                    r.lpop('listtme15')
+                    r.lpop('listmemory')
+                    r.lpop('listnetworktx')
+                    r.lpop('listnetworkrx')
+                    i=json.loads(t['listtime'])[-1]
+                    i0=json.loads(t['listtime'])[-2]
+                    #print 'i:--------------------------------------------',i
+                    datas=0
+                    datas5=0
+                    datas15=0
+                    datamemory=0
+                    datanetworkrx=0
+                    datanetworktx=0
+                    dataslen=len(json.loads(t[i]))
+                    for k,v in json.loads(t[i]).items():
+                        datas+=float(json.loads(t[i])[k]['load']['loadaverage'][0])
+                        datas5+=float(json.loads(t[i])[k]['load']['loadaverage'][1])
+                        datas15+=float(json.loads(t[i])[k]['load']['loadaverage'][2])
+                        datamemory+=float(json.loads(t[i])[k]['memory']['use%'])
+                        try:
+                            datanetworktx+=round((float(json.loads(t[i])[k]['network']['tx'])-float(json.loads(t[i0])[k]['network']['tx']))/1024/1024,3)
+                            datanetworkrx+=round((float(json.loads(t[i])[k]['network']['rx'])-float(json.loads(t[i0])[k]['network']['rx']))/1024/1024,3)
+                        except:
+                            pass
+                    r.rpush('listtme',float(datas/dataslen))
+                    r.rpush('listtme5',float(datas5/dataslen))
+                    r.rpush('listtme15',float(datas15/dataslen))
+                    r.rpush('listmemory',float(datamemory/dataslen))
+                    r.rpush('listnetworktx',float(datanetworktx/dataslen))
+                    r.rpush('listnetworkrx',float(datanetworkrx/dataslen))
+                #print r.lrange('listtme',0,-1)
+                htime=a
+            except:
+                time.sleep(10)
+except Exception,ex:
+    logger = logging.getLogger('webredis')
+    logger.setLevel(logging.DEBUG)
+    fh = logging.FileHandler('/var/log/monitor/webredis.log')
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+    logger.error(ex)
+    try:
+        import os
+        os.system("rm -rf /var/run/pym_client/webredis.pid")
+        os.system("rm -rf /var/lock/subsys/webredis")
+    except:
+        pass
+    exit(1)

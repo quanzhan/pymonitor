@@ -1,0 +1,5 @@
+pym_server 为c/s的服务端，用于接受节点数据
+nodedatacolloect为服务端数据的收集。
+webredis 为节点状态平均值统计。
+nodedataredis为产生每个节点的数据。
+pym_client 为c/s的客户端。

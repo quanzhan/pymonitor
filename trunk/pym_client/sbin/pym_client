@@ -1,0 +1,253 @@
+#!/usr/bin/env python
+#-*- coding:utf-8 -*-
+
+""" pymonitor 集群监控系统， 客户端服务程序 """
+""" 功能过程表述：
+    首先. 初始化一些基本变量：
+        1. 初始化日志系统
+        2. 加载配置文件 /etc/pymonitor/pym_client.conf
+        3. 收集系统所有的物理网卡的名字
+        4. 收集系统所有的硬盘的物理名字，比如  /dev/sda  /dev/sdb  /dev/isici 等等
+    最后，启动loop服务，并发送数据
+
+"""
+
+import os
+import sys
+import re
+import time
+import simplejson as json
+import logging
+
+import ConfigParser
+from socket import *
+
+import pyssh
+from pym_client import ProcDiskstats, ProcNetDev, ProcMeminfo, ProcStat
+#from pym_client import *
+
+SERVER_IP = ''      # 服务器IP
+SERVER_PORT = ''    # 服务器端口. default: 8123
+BUF_SIZE = ''       # 网络传输的缓冲区大小. default: 1024
+INTERFACE = ''      # 监控数据的传输网卡. default: eth0
+FREQUENCY = ''      # 监控的频率， 按秒计算. default: 1
+LOG_LEVEL = ''      # 日志级别 
+LOG_FILE = ''       # 日志文件
+
+CONFIG_FILE = '/etc/pymonitor/pym_client.conf'
+
+ifcfgs = []             # 实际运行的物理网卡列表, example: ['eth0', 'eth1', 'ib0', 'ib1']
+ifcfgs_bandwidth = {}   # 保存网卡的带宽能力，类似于这样 {'eth0':'1000M/s', 'eth1':'10000M/s'}
+devs = []               # 实际存在的硬盘设备
+host_ip = ''            # 本机IP, 需通过INTERFACE计算
+
+if __name__ == "__main__":
+    """ 说明:
+        # 首先加载服务的配置文件，并获取配置信息
+
+        # 其次初始化日志系统,  
+
+        # 其次初始化基础数据
+        #### 1. 删除缓存文件
+        #### 2. 所有的物理网卡名，并获取每个网卡的带宽， 通过 ethtool 获取
+        #### 3. 说有的物理硬盘
+        #### 4. 配置文件中所指定的本地监听网卡所对应的IP地址
+
+        # 然后创建并测试socket连接
+
+        # 最后进入Loop中
+            ## 获取数据
+            ## 发送数据
+
+    """
+
+    # 首先加载服务的配置文件，并获取配置信息
+    try:
+        config=ConfigParser.ConfigParser()
+        cfgfile = open(CONFIG_FILE,'r')
+        config.readfp(cfgfile)
+        SERVER_IP = config.get('client','SERVER_IP')
+        SERVER_PORT=int(config.get('client','SERVER_PORT'))
+        BUF_SIZE = int(config.get('client','BUF_SIZE'))
+        INTERFACE = config.get('client','INTERFACE')
+        FREQUENCY = config.get('client','FREQUENCY')
+        LOG_LEVEL = config.get('client','LOG_LEVEL')
+        LOG_FILE = config.get('client','LOG_FILE')
+        cfgfile.close()
+    except :
+        print 'Can not find config file: %s' % (CONFIG_FILE)
+        sys.exit(1)
+ 
+    # 其次初始化日志系统, 
+    #(status, msgs, results) = pyssh.getcmd(cmd='mkdir -p %s; touch %s'%('/var/log/pymonitor/', LOG_FILE))
+    fh = logging.FileHandler(LOG_FILE)
+    formatter = logging.Formatter('[%(asctime)s][%(name)s][%(levelname)s]: %(message)s')
+    fh.setFormatter(formatter)
+    logger = logging.getLogger('pym_client')
+    logger.setLevel(getattr(logging,LOG_LEVEL))
+    logger.addHandler(fh)
+
+   
+    # 其次初始化基础数据
+    #### 删除缓存文件
+    #pyssh.getcmd(cmd="echo ''>/tmp/proc_diskstats")
+    cmd = "/tmp/proc_diskstats /tmp/proc_stat /tmp/proc_net_dev"
+    (status, msgs, results) = pyssh.getcmd(cmd="rm -rf %s" % cmd)
+    logger.info('Initialization: Delete cache file - %s' % cmd)
+
+    #### 初始化所有的物理网卡
+    ifcfgs = []
+    (status, msgs, results) = pyssh.getcmd('ifconfig -a ')
+    (status2, msgs2, results2) = pyssh.getcmd('cat /etc/udev/rules.d/*net.rules')
+    if status + status2 == 0:
+        # 获取物理网卡
+        #ifcfgs = [r.split(' ', 1)[0].strip() for r in results.split('\n\n') if r and 'Interrupt' in r]  # 只获取物理网卡的名字
+        ifcfgs = [r.split(' ', 1)[0].strip() for r in results.split('\n\n') if r and 'lo' not in r]  # 只获取物理网卡的名字
+        #udevs =  [r.split(',')[-1].split('=')[-1][1:-1] for r in results2.split('\n') if 'SUBSYSTEM' in r ]
+        udevs = ifcfgs
+        if not ifcfgs or not udevs:
+            ex = "Can not initialize the interfaces. Please restart the network first. CMD 'ifconfig'=%s, File /etc/udev/rules.d/*net.rules=%s " % (str(ifcfgs), str(udevs))
+            logger.error(ex)
+            sys.exit(1)
+
+        ifcfgs = list(set(ifcfgs) & set(udevs))
+    else:
+        ex = 'Can not initialize the interfaces, %s ' % msgs + ' ' + msgs2
+        logger.error(ex)
+        sys.exit(1)
+    logger.info('Initialization: Check the physical NIC - %s' % str(ifcfgs))
+
+    ##### 初始化所有的物理网卡的带宽: bandwidth
+    for ifcfg in ifcfgs:
+        cmd = 'ethtool %s | grep Speed' % ifcfg
+        (status, msgs, results) = pyssh.getcmd(cmd=cmd)
+        if status == 0:
+            tmp = results.split(':')   # ={'eth0':1000M/s, 'eth1':10000M/s}
+            if tmp != []:
+                ifcfgs_bandwidth[ifcfg] = tmp[1].strip()   # ={'eth0':1000M/s, 'eth1':10000M/s}
+            else:
+                ifcfgs_bandwidth[ifcfg] = None   # ={'eth0':1000M/s, 'eth1':10000M/s}
+        else:
+            ifcfgs_bandwidth[ifcfg] = None  # ={'eth0':1000M/s, 'eth1':10000M/s}
+            ex = 'Can not initialize the interface bandwidth - %s' % ifcfg
+            logger.warning(ex)
+    logger.info('Initialization: Check the bandwidth of the physical interfaces - %s' % str(ifcfgs_bandwidth))
+
+    #### 初始化所有的物理硬盘
+    devs = []
+    (status, msgs, results) = pyssh.getcmd('cat /proc/partitions')
+    if status == 0:
+        #devs = [r.split()[-1].strip() for r in results.split('\n') if r and 'loop' not in r and 'name' not in r and r.strip()[-1] not in '0123456789']
+	devs = [r.split()[-1].strip() for r in results.split('\n') if r and 'loop' not in r and re.split('[ ]+',r)[2] == '0']
+        if not devs:
+            ex = 'Can not initialize the devices. Please check the physical devices first.'
+            logger.error(ex)
+            sys.exit(1)
+    	logger.info('Initialization: Check the physical devices - %s' % str(devs))
+    else:
+        ex = 'Can not initialize the devices, from: /proc/partitions'
+        logger.error(ex)
+        sys.exit(1)
+
+    #### 4. 配置文件中所指定的本地监听网卡所对应的IP地址
+    (status, msgs, results) = pyssh.getcmd(cmd='ifconfig %s | grep inet\ addr' % INTERFACE)
+    if status == 0:
+        host_ip = results.split(':')[1].split(' ')[0].strip()            # 本机IP, 需通过INTERFACE计算
+    	logger.info('Initialization: Get the IP by the monitoring system used - %s:%s' % (INTERFACE, host_ip))
+    else:
+        ex = 'Can not get ip address at ethernet <%s>, which is assigned from profile /etc/pymonitor/pym_client.conf param INTERFACE.' % (INTERFACE)
+        logger.error(ex)
+        sys.exit(1)
+
+    # 然后创建并测试socket连接
+    try:
+        tcpCliSock=socket(AF_INET, SOCK_STREAM)
+        tcpCliSock.bind((host_ip,0))
+        tcpCliSock.connect((SERVER_IP,SERVER_PORT))
+        logger.info('Initialization: Start Pymonitor Client - [OK]')
+    except Exception,ex:
+    #except tcpCliSock.error, ex:
+
+        #if len(ex.args) == 1:
+        #    error_message = "" %
+
+        os.system("rm -rf /var/run/pym_client.pid")
+        os.system("rm -rf /var/lock/subsys/pym_client")
+        logger.error('Initialization: Check the pym_server connection - [Failed]')
+        sys.exit(1)
+
+    # 最后进入Loop中
+    last_time=int(time.time())
+    time.sleep(int(FREQUENCY))
+    try:   
+        pid = os.fork()   
+        if pid > 0:  
+            # exit first parent  
+            sys.exit(0)   
+    except OSError, e:   
+        print >>sys.stderr, "fork #1 failed: %d (%s)" % (e.errno, e.strerror)   
+        sys.exit(1)  
+    os.chdir("/")   
+    os.setsid()   
+    os.umask(0)   
+    try:   
+        pid = os.fork()   
+        if pid > 0:  
+            print  pid   
+            sys.exit(0)   
+    except OSError, e:   
+        print >>sys.stderr, "fork #2 failed: %d (%s)" % (e.errno, e.strerror)   
+        sys.exit(1)   
+
+    while True:
+        # 发送数据
+        now_time=int(time.time())
+        if now_time > last_time + 3:
+            logger.info('The amount of time between last_time or now_time is too large in pymonitor client, but it does not have any effect  to monitor system.')
+
+        if now_time > last_time:
+
+            data = {}
+
+            (status, msgs, results) = ProcDiskstats.get_ProcDiskstats(devices=devs)
+            if status != 0: logger.warning('Get data: %s' % msgs)
+            data['devices'] = results
+    
+            (status, msgs, results) = ProcNetDev.get_ProcNetDev(devices=ifcfgs, bandwidth=ifcfgs_bandwidth)
+            if status != 0: logger.warning('Get data: %s' % msgs)
+            data['network'] = results
+    
+            (status, msgs, results) = ProcMeminfo.get_ProcMeminfo()
+            if status != 0: logger.warning('Get data: %s' % msgs)
+            data['memorys'] = results
+    
+            (status, msgs, results) = ProcStat.get_ProcStat()
+            if status != 0: logger.warning('Get data: %s' % msgs)
+            data['cpuload'] = results
+
+            try:
+                tcpCliSock.send(json.dumps([host_ip , str(now_time), data]))
+                #data=tcpCliSock.recv(BUF_SIZE)
+            except:
+                logger.warning("Pymonitor Client lost connnection. Pymonitor will reconnect automatically! ")
+                tcpCliSock.close()
+                while True:
+                    try:
+                        tcpCliSock=socket(AF_INET, SOCK_STREAM)
+                        tcpCliSock.connect((SERVER_IP,SERVER_PORT))
+                        logger.info("Congratulation! Pymonitor Client has been reconnnect automatically! ")
+                        break
+                    except Exception,ex:
+                        logger.error('Reconnect: Check the pym_server connection - [Failed]')
+                        time.sleep(1)
+
+            last_time = now_time
+	elif now_time < last_time:
+            last_time = now_time
+            logger.info("system time has changed to %d"% now_time)
+            
+        
+        # 发送误差,如果FREQUENCY=1,那么发送时刻在timestamp+0.0~timestamp+0.2之间
+        time.sleep(int(FREQUENCY) * 0.2)
+        #time.sleep(int(FREQUENCY))
+

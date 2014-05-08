@@ -1,0 +1,65 @@
+<!--*------------------------------------------------------------------
+
+*2012-07-1 Info.Inc
+
+*------------------------------------------------------------------
+
+*HPC ENV - Info High Proformace Computing Environment
+
+*“迎福高性能计算环境”
+
+*HPC ENV是一个使用很多处理器（作为单个机器的一部分）或者某一集群中组织的几台计算机（作为单个计算资源操作）的计算系统和环境。
+
+*HPC ENV统一每个节点的操作系统配置，有效的监控和管理集群的日常操作。
+
+*HPC ENV具有集中的集群管理、快速响应、易于支持、易于设置及可扩展等优点。
+
+*HPC ENV的产生我们希望对您所遇到的问题是有帮助的，希望您用的满意。
+
+*如您还不明白，可以询问本公司相关人员。公司网址：www.infu.com.cn
+
+*版权归属: 北京迎福时代数码科技有限公司
+
+*开发： 迎福研发部
+
+*作者： @李佳龙
+
+#--------------------------------------------------------------------*--!>
+
+
+
+<!DOCTYPE HTML PUBLIVC "-//W3C//DTD HTML 4.01//EN">
+<!--[if lte IE 8]><script language='javascript' type='text/javascript' src='/js/excanvas.min.js'></script><![endif]-->
+<script language='javascrippt' type='text/javascript' src='/js/jquery.flot.js'></script>
+<div id='placeholder' style='width:650px;height:300px;'></div>
+<div id='divuptime5' style="display:none"></div>
+<script type='text/javascript'>
+$(function(){
+	function getRandomData5(){
+				var res=[];
+            	$.get("{%url monitor-uptime5%}", function(result){$('#divuptime5').html(result);});
+                var y = $('#divuptime5').html();
+				if (y!=''&&y!=null){
+				y=eval(y);
+				for (var i=0;i<y.length;++i)
+					res.push([i,y[i]])
+				}
+                return res;
+	}
+	var options={
+	//	lines:{lineWidth:0,fill:true,fillColor:"#63B8FF"},
+		serier:{shadowSize:0},
+		yaxis:{min:0,max:100,ticks:[[0,'0%'],[20,'20%'],[40,'40%'],[60,'60%'],[80,'80%'],[100,'100%']]},
+		xaxis:{show:false},
+		
+		};
+	var plot = $.plot($('#placeholder'),[[[0,20],[300,20]],[[0,50],[300,50]],[[0,80],[300,80]],{label:"5分钟",data:getRandomData5()}],options);
+	function update(){
+		plot.setData([[[0,20],[300,20]],[[0,50],[300,50]],[[0,80],[300,80]],{label:'5分钟',data:getRandomData5()}]);
+		plot.draw();
+		setTimeout(update,3000);
+	}
+	update();
+
+});
+</script>

@@ -1,0 +1,83 @@
+#!/usr/bin/python
+import redis
+import json
+import threading
+import time
+import ConfigParser
+hostip='127.0.0.1'
+hostport=6379
+try:
+	config=ConfigParser.ConfigParser()
+	with open('/etc/monitor/pym_server.cfg','rw') as cfgfile:
+		config.readfp(cfgfile)
+		try:
+			hostip=config.get('server','REDISHOST')
+		except:
+			pass
+		try:
+			hostport=int(config.get('server','REDISPORT'))
+		except:
+			pass
+except:
+	pass
+t=redis.Redis(host=hostip,port=hostport,db=2)
+t=redis.Redis(host=hostip,port=hostport,db=2)
+files=file('/etc/monitor/node.conf')
+files=files.read()
+files=files.split('\n')
+files.pop()
+for j in files:
+	rnd=redis.Redis(host=hostip,port=hostport,db=int(j.split('.')[-1])+10)
+	rnd.flushdb()
+htime=int(time.time())
+st=0
+while True:
+	a=int(time.time())
+	if a==htime:
+		time.sleep(0.4)
+		continue
+	else:
+		try:
+			if st==0:
+				for jj in range(len(json.loads(t['listtime']))):
+					i=json.loads(t['listtime'])[jj]
+					for k,v in json.loads(t[i]).items():
+						noderedis=redis.Redis(host=hostip,port=hostport,db=int(k.split('.')[-1])+10)
+						noderedis.rpush('listtme',json.loads(t[i])[k]['load']['loadaverage'][0])
+						noderedis.rpush('listtme5',json.loads(t[i])[k]['load']['loadaverage'][1])
+						noderedis.rpush('listtme15',json.loads(t[i])[k]['load']['loadaverage'][2])
+						noderedis.rpush('listmemory',json.loads(t[i])[k]['memory']['use%'])
+						if jj!=0:
+							try:
+	
+								noderedis.rpush('listnetworktx',round((float(json.loads(t[i])[k]['network']['tx'])-float(json.loads(t[json.loads(t['listtime'])[jj-1]])[k]['network']['tx']))/1024/1024,3))
+								noderedis.rpush('listnetworkrx',round((float(json.loads(t[i])[k]['network']['rx'])-float(json.loads(t[json.loads(t['listtime'])[jj-1]])[k]['network']['rx']))/1024/1024,3))
+							except:
+								pass
+				st=1
+			else:
+				i=json.loads(t['listtime'])[-1]
+				i0=json.loads(t['listtime'])[-2]
+				if i!=j:
+					for kk,vv in json.loads(t[i]).items():
+						nr=redis.Redis(host=hostip,port=hostport,db=int(kk.split('.')[-1])+10)
+						if nr.llen('listtme')>=300:
+							nr.lpop('listtme')
+							nr.lpop('listtme5')
+							nr.lpop('listtme15')
+							nr.lpop('listmemory')
+							nr.lpop('listnetworktx')
+							nr.lpop('listnetworkrx')
+						nr.rpush('listtme',json.loads(t[i])[kk]['load']['loadaverage'][0])
+						nr.rpush('listtme5',json.loads(t[i])[kk]['load']['loadaverage'][1])
+						nr.rpush('listtme15',json.loads(t[i])[kk]['load']['loadaverage'][2])
+						nr.rpush('listmemory',json.loads(t[i])[kk]['memory']['use%'])
+						try:
+							nr.rpush('listnetworktx',round((float(json.loads(t[i])[kk]['network']['tx'])-float(json.loads(t[i0])[kk]['network']['tx']))/1024/1024,3))
+							nr.rpush('listnetworkrx',round((float(json.loads(t[i])[kk]['network']['rx'])-float(json.loads(t[i0])[kk]['network']['rx']))/1024/1024,3))
+						except:
+							pass
+			j=i
+			htime=a
+		except:
+			time.sleep(10)

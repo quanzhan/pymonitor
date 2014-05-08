@@ -1,0 +1,18 @@
+说明：真正的phpredisadmin是2011*.gz包。但是需要phpredis，php
+php安装此处不再讲解。
+下面开始介绍步骤：
+1.解压包2011到apache的根目录下，并在127.0.0.1:80/下点击此目录。发现缺phpredis，此时进行以下步骤：
+	
+（1）解压nicolasff-phpredis*
+	『1』phpize
+		如果没有phpize就要进入如下步骤了：
+			因为phpize源自于php-devel。
+			rpm -vhi php-devel*并根据依赖包进行安装完成。（此文件夹已提供）
+	『2』./configure
+	『3』make&make install
+	『4』修改/etc/php.ini
+			添加如下：
+				extension=/usr/lib64/php/modules/redis.so
+					此目录为安装完成时提示的模块目录，注意要用绝对的路径。
+				extension_dir=/var/www/html/
+（2）重启apache服务

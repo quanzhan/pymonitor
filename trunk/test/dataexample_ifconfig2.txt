@@ -1,0 +1,28 @@
+
+t@node02:~# ifconfig 
+br-ex     Link encap:Ethernet  HWaddr b4:99:ba:b8:2b:38  
+          inet addr:192.168.8.225  Bcast:192.168.8.255  Mask:255.255.255.0
+          inet6 addr: fe80::b699:baff:feb8:2b38/64 Scope:Link
+          UP BROADCAST RUNNING PROMISC MULTICAST  MTU:1500  Metric:1
+          RX packets:70587 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:48858 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0 
+          RX bytes:61582173 (61.5 MB)  TX bytes:11402318 (11.4 MB)
+
+eth1      Link encap:Ethernet  HWaddr b4:99:ba:b8:2b:38  
+          inet6 addr: fe80::b699:baff:feb8:2b38/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:23453 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:15108 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:29574079 (29.5 MB)  TX bytes:2008365 (2.0 MB)
+          Interrupt:17 Memory:f2000000-f2012800 
+
+lo        Link encap:Local Loopback  
+          inet addr:127.0.0.1  Mask:255.0.0.0
+          inet6 addr: ::1/128 Scope:Host
+          UP LOOPBACK RUNNING  MTU:16436  Metric:1
+          RX packets:26459 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:26459 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0 
+          RX bytes:2196947 (2.1 MB)  TX bytes:2196947 (2.1 MB)

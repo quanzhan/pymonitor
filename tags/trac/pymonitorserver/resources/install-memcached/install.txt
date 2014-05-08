@@ -1,0 +1,11 @@
+
+需要安装一下rpm包，使得session可以使用操作系统缓冲
+
+分别是：
+libmemcached-0.31-1.1.el6.x86_64.rpm
+libmemcached-devel-0.31-1.1.el6.x86_64.rpm
+memcached-1.4.4-3.el6.x86_64.rpm
+memcached-devel-1.4.4-3.el6.x86_64.rpm
+python-memcached-1.43-5.3.el6.noarch.rpm
+
+

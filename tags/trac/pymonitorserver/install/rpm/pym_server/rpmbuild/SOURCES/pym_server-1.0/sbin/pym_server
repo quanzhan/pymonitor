@@ -1,0 +1,64 @@
+#!/usr/bin/python
+from twisted.internet.protocol import Factory
+from twisted.protocols.basic import LineReceiver
+from twisted.internet import protocol,reactor
+from time import ctime
+import time
+import threading
+import redis
+import ConfigParser
+PORT=8123
+hostip='127.0.0.1'
+hostport=6379
+try:
+	config=ConfigParser.ConfigParser()
+	with open('/etc/monitor/pym_server.cfg','rw') as cfgfile:
+		config.readfp(cfgfile)
+		try:
+			PORT=int(config.get('server','SERVERPORT'))
+		except:
+			pass
+		try:
+			hostip=config.get('server','REDISHOST')
+		except:
+			pass
+		try:
+			hostport=int(config.get('server','REDISPORT'))
+		except:
+			pass
+		cfgfile.close()
+except:
+	pass
+lock=threading.Lock()
+def datareload(self):
+    if lock.acquire():
+        time.sleep(1)
+        t=redis.Redis(host=hostip,port=hostport,db=int(self.name.split('.')[-1]))
+        t.flushdb()
+        lock.release()	
+r=redis.Redis(host=hostip,port=hostport,db=1)
+r.flushdb()
+class TSServProtocol(protocol.Protocol):
+    def __init__(self):
+        self.name=None
+    def connectionMade(self):
+        clnt=self.clnt=self.transport.getPeer().host
+        print '...connected from:',ctime(),clnt
+    def connectionLost(self,reason):
+        clnt=self.clnt=self.transport.getPeer().host
+        print '...lost connected from:',clnt
+        if r.exists(self.name):
+            r.delete(self.name)
+            tt=threading.Thread(target=datareload(self))
+            tt.start()
+    def dataReceived(self,data):
+        data=data.split('&&&')
+        r[data[0]]=data[1]
+        self.name=data[0]
+        self.transport.write('[%s] %s' %(ctime(),data))
+class ChatFactory(Factory):
+    def buildProtocol(self,addr):
+        return TSServProtocol()
+print 'waiting for connection...'
+reactor.listenTCP(PORT,ChatFactory())
+reactor.run()

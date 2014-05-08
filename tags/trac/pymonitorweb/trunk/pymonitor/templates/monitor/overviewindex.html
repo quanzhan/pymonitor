@@ -1,0 +1,269 @@
+<!--*------------------------------------------------------------------
+
+*2012-07-1 Info.Inc
+
+*------------------------------------------------------------------
+
+*HPC ENV - Info High Proformace Computing Environment
+
+*“迎福高性能计算环境”
+
+*HPC ENV是一个使用很多处理器（作为单个机器的一部分）或者某一集群中组织的几台计算机（作为单个计算资源操作）的计算系统和环境。
+
+*HPC ENV统一每个节点的操作系统配置，有效的监控和管理集群的日常操作。
+
+*HPC ENV具有集中的集群管理、快速响应、易于支持、易于设置及可扩展等优点。
+
+*HPC ENV的产生我们希望对您所遇到的问题是有帮助的，希望您用的满意。
+
+*如您还不明白，可以询问本公司相关人员。公司网址：www.infu.com.cn
+
+*版权归属: 北京迎福时代数码科技有限公司
+
+*开发： 迎福研发部
+
+*作者： @李佳龙
+
+#--------------------------------------------------------------------*--!>
+
+
+
+<style>
+*{ margin:0; padding:0; font-size:12px;}
+li{ list-style-type:none; float:left}
+.clear{clear:both;height:0;overflow:hidden;}
+/*系统基本信息：*/
+.ptOverview{ width:797px; height:auto; overflow:hidden; }
+.jbInformation{ width:797px; height:auto;}
+.jbInformationa{ width:789px; height:34px; line-height:34px; background:url(images/yt2.jpg) no-repeat; padding-left:8px; font-size:14px;
+color:#095881; font-weight:bold}
+.jbInformationb{ width:797px; height:auto; padding-top:13px;}
+/*分区信息,CPU信息,网络负载,内存使用量,*/
+.fqInformation,.cpuInformation,.Networkload,.Memory,.Diska{ width:797px; height:auto; padding-top:15px;}
+
+.fqInformationa,.cpuInformationa,.Networkloada,.Memorya,.Diskaa{width:789px; height:34px; line-height:34px; background:url(images/yt2.jpg) no-repeat; padding-left:8px; font-size:14px;
+color:#095881; font-weight:bold}
+.fqInformationb,.cpuInformationb,.Networkloadb,.Memoryb,.Diskab{ width:797px; height:auto; padding-top:13px;}
+
+/*table*/
+table, td{font:100% Arial, Helvetica, sans-serif; }
+table tr th{ text-align:center}
+table, th{font:100%;}
+table{width:1027px;border-collapse:collapse; border:0;}
+th, td{text-align:left;padding:.5em;border:1px solid #cbdbe8;}
+th{color:#404141; line-height:25px;}
+td{background:#f8fbfd; line-height:25px;}
+</style>
+<div class="ptOverview">
+    <div class="jbInformation">
+        <div class="jbInformationa">
+            <p>
+            系统基本信息：
+            <select id='sel_host' style="float:right; padding-top:2px; margin-top:6px; margin-right:3px;  width:240px;  background:#E0FFFF;" onchange="javascript:window.location.href='{%url monitor-overview%}?hostname='+$('#sel_host').val();">
+                {% if hostname %}
+                    <option value="{{hostname}}">当前： -- {{hostname}} -- </option>
+                {% else %}
+                    <option value="">-- 默认 -- </option>
+                {% endif %}
+
+                {% for h in hosts %}
+                    {% ifequal hostname h %}
+                    {% else %}
+                    <option value="{{h}}">节点： -- {{h}} -- </option>
+                    {% endifequal %}
+                {% endfor %}
+            </select>
+            </p>
+        </div>
+        <div class="jbInformationb">
+            <table style="width:797px;cellspacing="0" cellpadding="0" ">
+        	<tr style=" width:797px;">
+            	<th style="text-align:right; font-weight:normal; font-size:14px; background:#f0f3f6" width="139">发行版名称:</th>
+                <th style="text-align:left;font-weight:normal; font-size:14px;" width="358">  {{system_status.description}} {{system_status.version}}</th>
+                <th style="text-align:right; font-weight:normal; font-size:14px; background:#f0f3f6" width="103">SSH开机：</th>
+                <th style="text-align:left;font-weight:normal; font-size:14px;" width="171">{{system_status.sshstatus}}</th>
+            </tr>
+            <tr style=" width:797px;">
+            	<th style="text-align:right; font-weight:normal; font-size:14px; background:#f0f3f6" width="139">主机名称:</th>
+                <th style="text-align:left;font-weight:normal; font-size:14px;" width="358">{{system_status.hostname}}</th>
+                <th style="text-align:right; font-weight:normal; font-size:14px; background:#f0f3f6" width="103">域:</th>
+                <th style="text-align:left;font-weight:normal; font-size:14px;" width="171">{{system_status.domain}}</th>
+            </tr>
+            <tr style=" width:797px;">
+            	<th style="text-align:right; font-weight:normal; font-size:14px; background:#f0f3f6" width="139">系统版本:</th>
+              <th style="text-align:left;font-weight:normal; font-size:14px; font-family:Arial, Helvetica, sans-serif" width="358">{{system_status.release}}</th>
+                <th style="text-align:right; font-weight:normal; font-size:14px; background:#f0f3f6" width="103">内核版本:</th>
+              <th style="text-align:left;font-weight:normal; font-size:14px;font-family:Arial, Helvetica, sans-serif" width="171">{{system_status.kernel}}</th>
+            </tr>
+            
+            <tr style=" width:797px;">
+            	<th style="text-align:right; font-weight:normal; font-size:14px; background:#f0f3f6" width="139">系统运行时长:</th>
+                <th style="text-align:left;font-weight:normal; font-size:14px;" width="358">{{system_status.online}}</th>
+              <th style="text-align:right; font-weight:normal; font-size:14px; background:#f0f3f6" width="103">在线使用者:</th>
+              <th style="text-align:left;font-weight:normal; font-size:14px;" width="171">{{system_status.users}}</th>
+            </tr>
+             <tr style=" width:797px;">
+            	<th style="text-align:right; font-weight:normal; font-size:14px; background:#f0f3f6" width="139">平均负载:</th>
+                <th style="text-align:left;font-weight:normal; font-size:14px;" width="358">{{system_status.averages}}</th>
+               <th style="text-align:right; font-weight:normal; font-size:14px; background:#f0f3f6" width="103">CPU核心数:</th>
+               <th style="text-align:left;font-weight:normal; font-size:14px;" width="171">{{system_status.cpus}}</th>
+            </tr>
+        </table>
+    </div>
+</div>
+    <div class="fqInformation">
+    <div class="fqInformationa">分区信息：</div>
+    <div class="fqInformationb">
+        <table style="width:797px;cellspacing="0" cellpadding="0" ">
+        	<tr style="width:797px;">
+            	<th style="font-weight:normal; font-size:14px; background:#f0f3f6" width="150">磁盘分区</th>
+                <th style="font-weight:normal; font-size:14px; background:#f0f3f6" width="80">类型</th>
+                <th style="font-weight:normal; font-size:14px; background:#f0f3f6" width="80">容量</th>
+                <th style="font-weight:normal; font-size:14px; background:#f0f3f6" width="80">已用</th>
+                <th style="font-weight:normal; font-size:14px; background:#f0f3f6" width="80">可用</th>
+                <th style="font-weight:normal; font-size:14px; background:#f0f3f6" width="100"> 已用/可用% </th>
+                <th style="font-weight:normal; font-size:14px; background:#f0f3f6" width="100">挂载点</th>
+            </tr>
+                {% for ps in partition_status %}
+            <tr style="width:797px;">
+           	<th style="font-weight:normal; font-size:14px; text-align:left;">{{ps.partition}} </th>
+                <th style="font-weight:normal; font-size:14px; text-align:left;">{{ps.type}}</th>
+                <th style="font-weight:normal; font-size:14px; text-align:left;">{{ps.size}}</th>
+                <th style="font-weight:normal; font-size:14px; text-align:left;">{{ps.used}}</th>
+                <th style="font-weight:normal; font-size:14px; text-align:left;">{{ps.avail}}</th>
+                <th style="font-weight:normal; font-size:14px; text-align:left;">{{ps.useper}}</th>
+                <th style="font-weight:normal; font-size:14px; text-align:left;">{{ps.mounted}}</th>
+            </tr>
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+    <!--cpu-->
+  <div class="cpuInformation">
+    <div class="cpuInformationa">CPU信息：</div>
+    <div class="cpuInformationb">
+    	<table style="width:797px;cellspacing="0" cellpadding="0" ">
+<tr style="width:797px;">
+            	<th style="font-weight:normal; font-size:14px; background:#f0f3f6" width="85">CPU核编号</th>
+                <th style="font-weight:normal; font-size:14px; background:#f0f3f6" width="282">CPU型号</th>
+                <th style="font-weight:normal; font-size:14px; background:#f0f3f6" width="115">CPU速度 </th>
+                <th style="font-weight:normal; font-size:14px; background:#f0f3f6" width="113">CPU缓冲</th>
+    <th style="font-weight:normal; font-size:14px; background:#f0f3f6" width="143">CPU BogoMips </th>
+            </tr>
+                {% for c in cpu_status %}
+            <tr style="width:797px;">
+              <th style="font-weight:normal; font-size:14px; text-align:left" width="85">{{c.processor}}</th>
+              <th style="font-weight:normal; font-size:14px;text-align:left" width="282">{{c.model_name}}</th>
+              <th style="font-weight:normal; font-size:14px;text-align:left" width="115">{{c.cpu_MHz}}</th>
+              <th style="font-weight:normal; font-size:14px;text-align:left" width="113">{{c.cache_size}}</th>
+              <th style="font-weight:normal; font-size:14px;text-align:left" width="143">{{c.bogomips}}</th>
+            </tr>
+                {% endfor %}
+        </table>
+    </div>
+  </div>
+  <div class="Networkload">
+    <div class="Networkloada">网络负载：</div>
+    <div class="Networkloadb">
+   	  <table style="width:797px;cellspacing="0" cellpadding="0" ">
+   	  <tr style="width:797px;">
+            	<th style="font-weight:normal; font-size:14px; background:#f0f3f6" width="253">设备</th>
+                <th style="font-weight:normal; font-size:14px; background:#f0f3f6" width="284">接收数据量</th>
+                
+                <th style="font-weight:normal; font-size:14px; background:#f0f3f6" width="226">发送数据量</th>
+        
+            </tr>
+            {% for n in network_status %} 
+            <tr style="width:797px;">
+           	  <th style="font-weight:normal; font-size:14px; text-align:left" width="253">{{n.0}}</th>
+              
+              <th style="font-weight:normal; font-size:14px;text-align:left" width="284">  
+               	<span style="width:252px; line-height:25px; display:block; float:left; font-size:14px;">{{n.1}}</span> 
+                    <span style="width:16px; height:16px; display:block; float:left; padding-top:4px;"><img src="images/020.gif"/></span> 
+              </th>
+              <th style="font-weight:normal; font-size:14px;text-align:left" width="226">  
+                	<span style="width:192px; line-height:25px; display:block; float:left; font-size:14px;">{{n.2}} </span>
+                    <span style="width:16px; height:16px; display:block; float:left; padding-top:4px;"><img src="images/020.gif"/></span>
+              </th>
+              
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+  </div>
+
+  <div class="Memory">
+    <div class="Memorya">内存使用量：</div>
+    <div class="Memoryb">
+    	<table style="width:797px;cellspacing="0" cellpadding="0" ">
+        	<tr style="width:797px;">
+           	  <th style="font-weight:normal; font-size:14px; background:#f0f3f6" width="153">系统内存</th>
+              <th style="font-weight:normal; font-size:14px; background:#f0f3f6" width="206"> 已使用	</th>
+              <th style="font-weight:normal; font-size:14px; background:#f0f3f6" width="192">剩余空间</th>
+              <th style="font-weight:normal; font-size:14px; background:#f0f3f6" width="202"> 总容量</th>
+            </tr>
+           {% for m in memory_status %} 
+            <tr style="width:797px;">
+           	  <th style="font-weight:normal; font-size:14px; width:153px; background:#f0f3f6">{{m.0}}</th>
+              
+              <th style="font-weight:normal; font-size:14px;text-align:left" width="206">  
+               	<span style="width:174px; line-height:25px; display:block; float:left; font-size:14px;">{{m.2}}MB</span> 
+                    <span style="width:16px; height:16px; display:block; float:left; padding-top:4px;"><img src="images/020.gif"/></span> 
+              </th>
+              <th style="font-weight:normal; font-size:14px;text-align:left" width="192">  
+                	<span style="width:161px; line-height:25px; display:block; float:left; font-size:14px;">{{m.3}}MB</span>
+                    <span style="width:16px; height:16px; display:block; float:left; padding-top:4px;"><img src="images/020.gif"/></span>
+              </th>
+              <th style="font-weight:normal; font-size:14px;text-align:left" width="202">  
+                	<span style="width:167px; line-height:25px; display:block; float:left; font-size:14px;">{{m.1}}MB</span>
+                    <span style="width:16px; height:16px; display:block; float:left; padding-top:4px;"><img src="images/020.gif"/></span>
+              </th>
+            </tr>
+        {% endfor %}
+            
+            
+        </table>
+    </div>
+  </div>
+  <div class="Diska">
+    <div class="Diskaa">磁盘IO负载：</div>
+    <div class="Diskab">
+    	<table style="width:797px;cellspacing="0" cellpadding="0" ">
+        	<tr style="width:797px;">
+           	  <th style="font-weight:normal; font-size:14px; background:#f0f3f6" width="111">Devices</th>
+              <th style="font-weight:normal; font-size:14px; background:#f0f3f6" width="105"> 每秒传输次数	</th>
+              <th style="font-weight:normal; font-size:14px; background:#f0f3f6" width="122">每秒读取数据量/MB </th>
+              <th style="font-weight:normal; font-size:14px; background:#f0f3f6" width="132">每秒写入数据量/MB</th>
+              <th style="font-weight:normal; font-size:14px; background:#f0f3f6" width="131">读取的总数据量/MB	</th>
+              <th style="font-weight:normal; font-size:14px; background:#f0f3f6" width="128">写入的总数据量/MB</th>
+            </tr>
+{% for k in io_status %}
+            <tr style="width:797px;">
+           	  <th style="font-weight:normal; font-size:14px; width:111px; background:#f0f3f6">{{k.0}}</th>
+              
+              <th style="font-weight:normal; font-size:14px;text-align:left" width="105">  
+               	<span style="width:78px; line-height:25px; display:block; float:left; font-size:14px;">{{k.1}}</span> 
+                    <span style="width:16px; height:16px; display:block; float:left; padding-top:4px;"><img src="images/020.gif"/></span> 
+              </th>
+              <th style="font-weight:normal; font-size:14px;text-align:left" width="122">  
+                	<span style="width:95px; line-height:25px; display:block; float:left; font-size:14px;">{{k.2}}</span>
+                    <span style="width:16px; height:16px; display:block; float:left; padding-top:4px;"><img src="images/020.gif"/></span>
+              </th>
+              <th style="font-weight:normal; font-size:14px;text-align:left" width="132">  
+                	<span style="width:102px; line-height:25px; display:block; float:left; font-size:14px;">{{k.3}}</span>
+                    <span style="width:16px; height:16px; display:block; float:left; padding-top:4px;"><img src="images/020.gif"/></span>
+              </th>
+              <th style="font-weight:normal; font-size:14px;text-align:left" width="131">  
+                	<span style="width:105px; line-height:25px; display:block; float:left; font-size:14px;">{{k.4}}</span>
+                    <span style="width:16px; height:16px; display:block; float:left; padding-top:4px;"><img src="images/020.gif"/></span>
+              </th>
+              <th style="font-weight:normal; font-size:14px;text-align:left;" width="128">  
+                	<span style="width:103px; line-height:25px; display:block; float:left; font-size:14px;">{{k.5}}</span>
+                    <span style="width:16px; height:16px; display:block; float:left; padding-top:4px;"><img src="images/020.gif"/></span>
+              </th>
+            </tr>
+{% endfor %}
+        </table>
+    </div>
+  </div>
+</div>

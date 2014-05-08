@@ -1,0 +1,145 @@
+<!--*------------------------------------------------------------------
+
+*2012-07-1 Info.Inc
+
+*------------------------------------------------------------------
+
+
+*HPC ENV - Info High Proformace Computing Environment
+
+*“迎福高性能计算环境”
+
+*HPC ENV是一个使用很多处理器（作为单个机器的一部分）或者某一集群中组织的几台计算机（作为单个计算资源操作）的计算系统和环境。
+
+*HPC ENV统一每个节点的操作系统配置，有效的监控和管理集群的日常操作。
+
+*HPC ENV具有集中的集群管理、快速响应、易于支持、易于设置及可扩展等优点。
+
+*HPC ENV的产生我们希望对您所遇到的问题是有帮助的，希望您用的满意。
+
+*如您还不明白，可以询问本公司相关人员。公司网址：www.infu.com.cn
+
+*版权归属: 北京迎福时代数码科技有限公司
+
+*开发： 迎福研发部
+
+*作者： @窄文颖
+
+#----------------------------------------------------------------------!>
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>{% block title %}{% endblock %}</title>
+<script type="text/javascript" src="js/jquery-1.7.1.min.js"></script>
+<script type="text/javascript" src="js/jquery.js"></script> 
+<link href="css/hpc.css" rel="stylesheet" type="text/css" />
+<style>
+.on{
+  border 1px solid red;
+}
+.on1{
+  border 1px solid green;
+}
+</style>
+</head>
+<body>
+
+<div id="content">
+<div class="hpcleft">
+  		<div class="hpcleft1">
+    		<div class="hpcleft1a">
+    		<center>
+      			<div class="wel">INFO 高性能计算环境
+      			<br />
+        Welcome: {{request.session.username}}
+                       </div></center>
+    		</div>
+    		<div class="hpcleft1b"></div>
+  	</div>
+  		<div class="hpcleft2">
+    		<div class="hpcleft2a"><img src="images/nylogo.jpg"  border="0"/></div>
+    		<div class="hpcleft2b"></div>
+  		</div>
+  		<div class="hpcleft3">
+  		  <div class="hpcleft3a">
+  		    <div class="hpcleft3a1">
+  		      <ul style="width:254px; height:34px; padding-left:8px;">
+              	<li class="L_meanu" style="background:url(images/a1.jpg) repeat-y;width:84px; line-height:34px; font-size:14px; text-align:center; font-weight:bold; cursor:pointer;">本地查看</li>
+                <li class="L_meanu" style="width:84px; line-height:34px; font-size:14px; text-align:center; font-weight:bold; cursor:pointer;">常用任务</li>
+                <li class="L_meanu" style="width:84px; line-height:34px; font-size:14px; text-align:center; font-weight:bold; cursor:pointer;">系统管理</li>
+              </ul>
+  		    </div>
+            <div class="hpcleft3a2"></div>
+  		  </div>
+     <div>
+          <div class="hpcleft3b">
+            {% ifequal request.session.username 'root' %}
+            <div class="hpcleft3b2">
+              <div class="hpcleft3b2aa"><a href="/localstatus/overview/overview/">平台概览</a></div>
+            </div>
+            {% endifequal %}
+            <div class="hpcleft3b2">
+              <div class="hpcleft3b2ad"><a href="/cluster/">集群监控</a></div>
+            </div>
+            <div class="hpcleft3b2">
+              <div class="hpcleft3b2ad"><a href="/localstatus/taskstatus/taskstatus/">任务状态</a></div>
+            </div>
+            <div class="hpcleft3b2">
+              <div class="hpcleft3b2ad"><a href="/localstatus/nodestatus/nodestatus/">节点状态</a></div>
+            </div>
+         </div>
+         <div class="hpcleft3b">
+         {% ifequal request.session.username 'root' %}
+           <div class="hpcleft3b2">
+              <div class="hpcleft3b2ab"><a href="/localoperate/logging/logstatus/">日志查询</a></div>
+           </div>
+           <div class="hpcleft3b2">
+              <div class="hpcleft3b2ab"><a href="/localoperate/selfstatus/teststatus/">系统自检</a></div>
+           </div>
+
+           {% else %}
+           <div class="hpcleft3b2">
+              <div class="hpcleft3b2ab"><a href="/localoperate/projects/projectstatus/">我的工程</a></div>
+           </div>
+           <div class="hpcleft3b2">
+              <div class="hpcleft3b2ab"><a href="/localoperate/taskadd/taskadd/">创建任务</a></div>
+           </div>
+           {% endifequal %}
+         </div>
+        <div class="hpcleft3b">
+           <div class="hpcleft3b2">
+             <div class="hpcleft3b2ac"><a href="/adminsystem/localadmin/modpassword/"> 密码修改 </a></div>
+           </div>
+            {% ifequal request.session.username 'root' %}
+            <div class="hpcleft3b2">
+              <div class="hpcleft3b2ac"><a href="/adminsystem/adminservices/services/"> 网络系统</a></div>
+            </div>
+            <div class="hpcleft3b2">
+              <div class="hpcleft3b2ac"><a href="/adminsystem/adminusers/account/users/"> 用户系统</a></div>
+            </div>
+            {% endifequal %}
+        </div>
+      </div>
+	  </div>
+	</div>
+	  <div class="hpcright1" style="position:absolute;top:0px;left:305px;">
+	  <font color="#095881" style="line-height:57px;"><b><div style="font-size:18px;">
+	    {% block rtop %}<div class="hpcright1a">{% endblock %}</div></b></font>
+       </div>
+        <ul  class="hpcrightli" style="line-height:57px;">
+            <li><a href="http://www.infu.com.cn/" style="text-decoration:none;color:#333333;font-size:12px;">帮助</a></li>
+        </ul>
+	  
+	<div class="hpcright" style="position:absolute;top:57px;left:305px;">
+      <div class="hpcright2" style="padding-top:35px;">
+            {% block contents %}
+            {% endblock %}
+	</div>
+     </div>
+</div>
+</body>
+</html>

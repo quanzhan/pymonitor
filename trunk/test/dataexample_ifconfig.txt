@@ -1,0 +1,53 @@
+[16:38:21] longgeek: [root@mgmt ~]# ifconfig 
+eth0      Link encap:Ethernet  HWaddr AC:16:2D:80:B2:00  
+          inet addr:192.168.6.200  Bcast:192.168.6.255  Mask:255.255.255.0
+          inet6 addr: fe80::ae16:2dff:fe80:b200/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:3760390676 errors:0 dropped:261152 overruns:0 frame:238572
+          TX packets:139064494 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:699179310876 (651.1 GiB)  TX bytes:105837513319 (98.5 GiB)
+          Interrupt:16 
+
+eth1      Link encap:Ethernet  HWaddr AC:16:2D:80:B2:01  
+          inet addr:202.112.116.37  Bcast:202.112.116.63  Mask:255.255.255.224
+          inet6 addr: fe80::ae16:2dff:fe80:b201/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:1567899719 errors:0 dropped:98 overruns:0 frame:51
+          TX packets:36025429 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:363630627489 (338.6 GiB)  TX bytes:37432874711 (34.8 GiB)
+          Interrupt:17 
+
+eth2      Link encap:Ethernet  HWaddr AC:16:2D:80:B2:02  
+          inet addr:192.168.5.1  Bcast:192.168.5.255  Mask:255.255.255.0
+          inet6 addr: fe80::ae16:2dff:fe80:b202/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:303582119 errors:0 dropped:2 overruns:0 frame:0
+          TX packets:1306 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:70630173471 (65.7 GiB)  TX bytes:86453 (84.4 KiB)
+          Interrupt:16 
+
+Ifconfig uses the ioctl access method to get the full address information, which limits hardware addresses to 8 bytes.
+Because Infiniband address has 20 bytes, only the first 8 bytes are displayed correctly.
+Ifconfig is obsolete! For replacement check ip.
+ib0       Link encap:InfiniBand  HWaddr 80:00:00:48:FE:80:00:00:00:00:00:00:00:00:00:00:00:00:00:00  
+          inet addr:172.16.1.200  Bcast:172.16.255.255  Mask:255.255.0.0
+          inet6 addr: fe80::202:c903:45:fe01/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:65520  Metric:1
+          RX packets:1750003 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:1616716 errors:0 dropped:161 overruns:0 carrier:0
+          collisions:0 txqueuelen:1024 
+          RX bytes:283167908 (270.0 MiB)  TX bytes:205307526 (195.7 MiB)
+
+lo        Link encap:Local Loopback  
+          inet addr:127.0.0.1  Mask:255.0.0.0
+          inet6 addr: ::1/128 Scope:Host
+          UP LOOPBACK RUNNING  MTU:16436  Metric:1
+          RX packets:7515989899 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:7515989899 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0 
+          RX bytes:1360771295699 (1.2 TiB)  TX bytes:1360771295699 (1.2 TiB)
+
+[root@mgmt ~]#

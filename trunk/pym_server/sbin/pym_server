@@ -1,0 +1,312 @@
+#!/usr/bin/python
+#-*- coding:utf-8 -*-
+
+""" pymonitor 服务端程序 """
+""" @Note:
+        接受客户端数据并将数据存储到redis数据库中, 然后计算均值， 并保存redis数据库。
+    
+"""
+
+
+import os
+import sys
+import time
+from time import ctime
+
+import threading
+import simplejson as json
+import ConfigParser
+
+import logging
+
+import redis
+
+from twisted.internet.protocol import Factory
+from twisted.protocols.basic import LineReceiver
+from twisted.internet import protocol, reactor
+
+import pyssh
+
+
+SERVER_PORT = ''  # 服务器端口. default: 8123
+REDIS_HOST = ''   # redis数据库ip
+REDIS_PORT = ''   # redis数据库端口
+LOG_LEVEL = ''    # 日志级别
+LOG_FILE = ''     # 日志文件路径
+DATA_SIZE = ''    # 环数据集大小
+CLIENT_IP = ''
+AVERAGE_DELAY = '' 
+
+
+CONFIG_FILE = '/etc/pymonitor/pym_server.conf'  # 服务端配置程序
+
+class TSServProtocol(protocol.Protocol):
+    """ Base Class """
+    def __init__(self, dic):
+        self.dic = dic
+
+    def connectionMade(self):
+        client_ip = self.client_ip = self.transport.getPeer().host
+        logger.info('Connect from: ' + client_ip)
+        if self.dic == {}:
+            t_avgData.flag=1 
+        self.dic[client_ip] = 1
+
+    def connectionLost(self, reason):
+        client_ip = self.client_ip = self.transport.getPeer().host
+        logger.info('Lost connect:'+client_ip)
+        try:
+            r1.delete(client_ip)
+            [r1.rpush(client_ip, '') for i in range(DATA_SIZE)]
+        except:
+            pass
+        try:
+            del self.dic[client_ip]
+        except:
+            pass
+        if self.dic == {}:
+            t_avgData.flag=0
+            r2.flushdb()
+            time.sleep(0.2)
+            [r2.rpush('average_data', '') for i in range(DATA_SIZE)]
+
+    def dataReceived(self, data):
+
+        try:
+            logger.info(data)
+            nowtime = int(time.time())
+            data = json.loads(data)
+
+            timestamp = int(data[1])
+            # Save redis
+            global r1
+            r1.rpush(data[0], json.dumps(data[2]))
+            r1.lpop(data[0])
+
+            # Save Buf
+            if data_lock.acquire():
+                global timestamps, results
+                if timestamp - nowtime > AVERAGE_DELAY:
+                    logger.info('IP <%s>, timestamp <%s> is bigger than nowtime <%s>. not in the range of %s seconds.' %(data[0],timestamp,nowtime,AVERAGE_DELAY))
+                elif nowtime -  timestamp > AVERAGE_DELAY:
+                    logger.info('IP <%s>, timestamp <%s> is smaller than nowtime <%s>, not in the range of %s seconds' %(data[0],timestamp,nowtime,AVERAGE_DELAY))
+                elif timestamps == [] or timestamp - timestamps[-1] == 1:
+                    timestamps.append(timestamp)
+                    results[timestamp] = {} 
+                    results[timestamp][data[0]] = data[2]
+                elif timestamp - timestamps[-1] > 1:
+                    for timestamp_list in range(timestamps[-1]+1,timestamp+1):
+                        timestamps.append(timestamp)
+                        results[timestamp] = {} 
+                    results[timestamp][data[0]] = data[2]
+                elif timestamp not in timestamps:
+                    logger.info('nowtime:<%s>IP <%s>, timestamp <%s>, data delays with <%s> seconds timeout, please check your network.{ this situation is not capated ,it will be processed when it happened. timestamp<%s> not in timestamps<%s>}' %(str(int(time.time())),data[0], data[1], AVERAGE_DELAY,timestamp,timestamps))
+                    #sys.exit(1)
+                else:
+                    results[timestamp][data[0]] = data[2]
+                data_lock.release()
+
+            #self.transport.write('')
+        except Exception, e:
+            logger.error(e)
+
+class ChatFactory(Factory):
+    def __init__(self):
+        self.dic={}
+
+    def buildProtocol(self, addr):
+        return TSServProtocol(self.dic)
+
+class ThreadAverageData(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+        self.flag=1
+
+    def run(self):
+        last_time=int(time.time())
+        global timestamps, results
+        while True:
+            now_time = int(time.time())
+            if now_time > last_time and self.flag==1:
+                # 去看 timestamps and results 里面是否为空
+                if data_lock.acquire():
+                    if timestamps != [] and results != []:
+                        # 去看 timestamps 里面的第一个值，所对应的时间是否是小雨当前时间戳的
+                        if now_time - AVERAGE_DELAY >= timestamps[0]: 
+                            try:
+                                timestamp = timestamps.pop(0)
+                                res = results[timestamp]
+                                del results[timestamp]
+                                r2.rpush('average_data',json.dumps(self.get_average(res)))
+                                r2.lpop('average_data')
+                                #print 'Data process is OK, timestamp is ', timestamp
+                            except Exception,e:
+                                logger.error('error:%s,dic:%s,list:%s' %(e,str(results),str(timestamps)))
+                    data_lock.release()
+
+                last_time = now_time
+
+            time.sleep(0.2)
+ 
+    def get_average(self,v_dic):
+        """
+            @Params: v_dic = { # 一个时刻的，所有IP传递过来的数据集合
+                u'192.168.10.103': {u'cpuload': {u'cpuuse': 1}, u'network': {u'eth1': {u'receive': 2, u'transmit': 0, u'bandwidth': u'1000Mb/s'}, u'eth0': {u'receive': 0, u'transmit': 0, u'bandwidth': u'1000Mb/s'}}, u'devices': {u'sda': {u'reading': 0, u'writing': 8}}, u'memorys': {u'cached': 323288, u'memtotal': 1017812, u'memused': 473876, u'buffers': 131920}},
+                u'192.168.10.104': {u'cpuload': {u'cpuuse': 1}, u'network': {u'eth1': {u'receive': 2, u'transmit': 0, u'bandwidth': u'1000Mb/s'}, u'eth0': {u'receive': 0, u'transmit': 0, u'bandwidth': u'1000Mb/s'}}, u'devices': {u'sda': {u'reading': 0, u'writing': 8}}, u'memorys': {u'cached': 323288, u'memtotal': 1017812, u'memused': 473876, u'buffers': 131920}}
+            }
+            @Return: 
+        """
+
+        data_len = len(v_dic)
+
+        cpuload_cpuuse = 0
+
+        network_receive = 0 
+        network_transmit = 0
+
+        devices_reading = 0
+        devices_writing = 0
+
+        memorys_cached = 0
+        memorys_memtotal = 0
+        memorys_memused = 0
+        memorys_buffers = 0
+        for k,v in v_dic.items():
+            cpuload_cpuuse += v['cpuload']['cpuuse']
+
+            #network_len = len(v['network'])
+            network_len = 1
+            network_receive_eth = 0
+            network_transmit_eth = 0
+            for key,value in v['network'].items():
+                network_receive_eth += value['receive']
+                network_transmit_eth += value['transmit']
+            network_receive += network_receive_eth/network_len
+            network_transmit += network_transmit_eth/network_len
+        
+            devices_len = len(v['devices'])
+            devices_reading_sd = 0
+            devices_writing_sd = 0
+            for de_k,de_v in v['devices'].items():
+                devices_reading_sd += de_v['reading']
+                devices_writing_sd += de_v['writing']
+            devices_reading += devices_reading_sd/devices_len
+            devices_writing += devices_writing_sd/devices_len
+            
+            memorys_cached += v['memorys']['cached']
+            memorys_memtotal += v['memorys']['memtotal']
+            memorys_memused += v['memorys']['memused']
+            memorys_buffers += v['memorys']['buffers']
+
+        ##### 格式化数据，按KB,MB,GB......
+        ####memorys_cached_format   = memorys_cached    
+        ####memorys_cached_format_unit   = memorys_cached    
+        ####memorys_memtotal_format = memorys_memtotal
+        ####memorys_memtotal_format_unit = memorys_memtotal
+        ####memorys_memused_format  = memorys_memused
+        ####memorys_memused_format_unit  = memorys_memused
+        ####memorys_buffers_format_unit  = memorys_buffers
+        ####memorys_buffers_format_unit  = memorys_buffers
+            
+        return {'cpuload':{'cpuuse':cpuload_cpuuse/data_len},'network':{'receive':network_receive/data_len,'transmit':network_transmit/data_len},'devices':{'reading':devices_reading/data_len,'writing':devices_writing/data_len},'memorys':{'cached':memorys_cached,'memtotal':memorys_memtotal,'memused':memorys_memused,'buffers':memorys_buffers}}
+          
+     
+if __name__ == "__main__":
+    """ 说明：
+        # 首先加载服务的配置文件，并获取配置信息
+        
+        #其次初始化日志系统
+    """
+
+    lock = threading.Lock() # 初始化线程锁 
+
+    # 首先加载服务的配置文件，并获取配置信息
+    try:
+        config = ConfigParser.ConfigParser()
+        cfgfile = open(CONFIG_FILE, 'r')
+        config.readfp(cfgfile)
+        SERVER_PORT = int(config.get('server', 'SERVER_PORT'))
+        REDIS_HOST = config.get('server', 'REDIS_HOST')
+        REDIS_PORT = int(config.get('server', 'REDIS_PORT'))
+        LOG_LEVEL = config.get('server', 'LOG_LEVEL')
+        LOG_FILE = config.get('server', 'LOG_FILE')
+        DATA_SIZE = config.getint('server', 'DATA_SIZE')
+        CLIENT_IP = r"%s"  % config.get('server', 'CLIENT_IP')
+        CLIENT_IP =  json.loads(CLIENT_IP)                  ## ??? 判断是否IP地址， 或者满足规范
+        AVERAGE_DELAY=config.getint('server', 'AVERAGE_DELAY')
+        cfgfile.close()
+    except:
+        print "Can not find config file: %s" % (CONFIG_FILE)
+        sys.exit(1)
+
+    # 其次初始化日志系统
+    fh = logging.FileHandler(LOG_FILE)
+    formatter = logging.Formatter('[%(asctime)s][%(name)s][%(levelname)s]: %(message)s')
+    fh.setFormatter(formatter)
+    logger = logging.getLogger('pym_server')
+    logger.setLevel(getattr(logging,LOG_LEVEL))
+    logger.addHandler(fh)
+
+    # 连接数据库
+    try:
+        global r1,r2
+        r1 = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=1)    # 保存以IP为KEY，300个点的数据
+        r1.flushdb()
+        [[r1.rpush(ip, '') for i in range(DATA_SIZE)] for ip in CLIENT_IP ]
+
+        r2 = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=2)
+        r2.flushdb()
+        [r2.rpush('average_data', '') for i in range(DATA_SIZE)]
+    except Exception, ex:
+        logger.error(ex)
+        try:
+            os.system("rm -rf /var/run/pym_server.pid")
+            os.system("rm -rf /var/lock/subsys/pym_server")
+        except:
+            pass
+        sys.exit(1)
+
+    # 初始化全局数据
+    #global timestamps,results
+    """ # 范例数据
+    timestamps = ['10001', '10002', '100003']
+    results = {
+        '100001': {'ip1': 'data', 'ip2':'data', 'ip3':'data'},
+        '100002': {'ip1': 'data', 'ip2':'data', 'ip3':'data'},
+        '100003': {'ip1': 'data', 'ip2':'data', 'ip3':'data'},         
+    }
+    """
+    timestamps = []
+    results = {}
+
+    data_lock=threading.Lock()
+
+    # 开启网络并接受数据
+    reactor.listenTCP(SERVER_PORT, ChatFactory())
+    try:   
+        pid = os.fork()   
+        if pid > 0:  
+            sys.exit(0)   
+    except OSError, e:   
+        print >>sys.stderr, "fork #1 failed: %d (%s)" % (e.errno, e.strerror)   
+        sys.exit(1)  
+    os.chdir("/")   
+    os.setsid()   
+    os.umask(0)   
+    try:   
+        pid = os.fork()   
+        if pid > 0:  
+            print pid
+            sys.exit(0)   
+    except OSError, e:   
+        print >>sys.stderr, "fork #2 failed: %d (%s)" % (e.errno, e.strerror)   
+        sys.exit(1)   
+
+    t_avgData = ThreadAverageData()
+    t_avgData.setDaemon(True)
+    t_avgData.start()
+    #t_avgData.join()
+    
+    logger.info('waiting for connection...')
+    reactor.run()
+

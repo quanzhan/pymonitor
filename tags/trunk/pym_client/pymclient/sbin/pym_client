@@ -1,0 +1,181 @@
+#!/usr/bin/python
+import time
+import random
+import json
+from socket import *
+import pyssh
+import re
+import os
+import ConfigParser
+import logging
+INTERFACE='eth0'
+HOST='127.0.0.1'
+PORT=8123
+BUFSIZ=1024
+HOSTIP=''
+try:
+    config=ConfigParser.ConfigParser()
+    with open('/etc/monitor/pym_client.cfg','rw') as cfgfile:
+        config.readfp(cfgfile)
+        try:
+            INTERFACE=config.get('client','INTERFACE')
+        except:
+            pass
+        cfgfile.close()
+except:
+    pass
+try:
+    HOSTIP=os.popen('/sbin/ifconfig '+INTERFACE+' | /bin/grep inet\ addr').read().split()[1].split(':')[1]
+except:
+    HOSTIP=''
+    print INTERFACE+' is not a vailable network card.'
+try:
+    config=ConfigParser.ConfigParser()
+    with open('/etc/monitor/pym_client.cfg','rw') as cfgfile:
+        config.readfp(cfgfile)
+        try:
+            HOST=config.get('client','HOST')
+        except:
+            pass
+        try:
+            PORT=int(config.get('client','PORT'))
+        except:
+            pass
+        try:
+            BUFSIZ=int(config.get('client','BUFSIZ'))
+        except:
+            pass
+        try:
+            HOSTIP=config.get('client','HOSTIP')
+        except:
+            pass
+        cfgfile.close()
+except:
+    pass
+STATS=[]
+def rx():
+    ifstat=open('/proc/net/dev').readlines()
+    for interface in ifstat:
+        if INTERFACE in interface:
+            stat=float(interface.split(":")[1].split()[0])
+            STATS[0:]=[stat]
+def tx():
+    ifstat=open('/proc/net/dev').readlines()
+    for interface in ifstat:
+        if INTERFACE in interface:
+            stat=float(interface.split()[9])
+            STATS[1:]=[stat]
+def network():
+    dic={}
+    rx()
+    tx()
+    dic['rx']=STATS[0]
+    dic['tx']=STATS[1]
+    return dic
+def memory():
+    dic={}
+    (status,msg,memory)=pyssh.getcmd(cmd='/usr/bin/free -m|/bin/grep buffers/cache')
+    memory=re.split(' +',memory)
+    dic['total']=str(int(memory[2])+int(memory[3]))
+    dic['used']=memory[2]
+    dic['free']=memory[3]
+    dic['use%']=str(round(float(dic['used'])*100/float(dic['total']),1))
+    return dic
+def load():
+    dic={}
+    (status,msg,load)=pyssh.getcmd(cmd='/usr/bin/uptime')
+    load=load.strip()
+    load=load.split('  ')
+    load=load[-1].split(': ')
+    load[1]=load[1].split(', ')
+    for i in range(len(load[1])):
+        if 0<float(load[1][i]) and float(load[1][i])<=1:
+            load[1][i]=str(float(load[1][i])*0.6*100)
+        elif 1<float(load[1][i]) and float(load[1][i])<=3:
+            load[1][i]=str((float(load[1][i])+2)*20)
+        elif float(load[1][i])>3:
+            load[1][i]=str(100)
+    load[0]=load[0].replace(" ","")
+    dic[load[0]]=load[1]
+    return dic
+def rootsize():
+    dic={}
+    (status,msg,rootsize)=pyssh.getcmd(cmd='/bin/df -h|/bin/grep "/$"')
+    rootsize=rootsize.strip() 
+    rootsize=re.split(' +',rootsize)
+    dic['size']=rootsize[-5]
+    dic['used']=rootsize[-4]
+    dic['avail']=rootsize[-3]
+    dic['use%']=rootsize[-2]
+    return dic
+def all():
+    networ=network()
+    memor=memory()
+    loa=load()
+    bootsiz=rootsize()
+    dic={}
+    dic['network']=networ
+    dic['memory']=memor
+    dic['load']=loa
+    dic['rootsize']=bootsiz
+    return dic
+ADDR=(HOST,PORT)
+
+tcpCliSock=socket(AF_INET, SOCK_STREAM)
+try:
+    import sys
+    tcpCliSock.connect(ADDR)
+    try:   
+        pid = os.fork()   
+        if pid > 0:  
+            # exit first parent  
+            
+            print 'sys.exit(0):',pid
+            sys.exit(0)   
+    except OSError, e:   
+        print >>sys.stderr, "fork #1 failed: %d (%s)" % (e.errno, e.strerror)   
+        sys.exit(1)  
+    os.chdir("/")   
+    os.setsid()   
+    os.umask(0)   
+    try:   
+        pid = os.fork()   
+        if pid > 0:  
+            print "Daemon PID %d" % pid   
+            sys.exit(0)   
+    except OSError, e:   
+        print >>sys.stderr, "fork #2 failed: %d (%s)" % (e.errno, e.strerror)   
+        sys.exit(1)   
+    t=0
+    htime=int(time.time())
+    while True:
+        a=int(time.time())
+        if a==htime:
+            time.sleep(0.5)
+            continue
+        else:
+            data=all()
+            data=json.dumps([HOSTIP,[str(int(time.time())),data]])
+            if HOSTIP!='':
+                tcpCliSock.send(data)
+                data=tcpCliSock.recv(BUFSIZ)
+    #        print data
+            htime=a
+    tcpCliSock.close()
+
+
+except Exception,ex:
+    logger = logging.getLogger('pymclient')
+    logger.setLevel(logging.DEBUG)
+    fh = logging.FileHandler('/var/log/monitor/pymclient.log')
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+    logger.error(ex)
+    try:
+        import os
+        os.system("rm -rf /var/run/pym_client/pym_client.pid")
+        os.system("rm -rf /var/lock/subsys/pym_client")
+    except:
+        pass
+    exit(1)
